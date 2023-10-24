@@ -8,20 +8,23 @@ Le présent rapport détaille le projet visant à analyser l'engagement des util
 
 Le développement de ce projet est né du besoin de répondre à des défis tels que la collecte de données à partir de la plateforme Mastodon, le traitement des données via MapReduce, le stockage dans HBase, et l'orchestration du workflow avec Apache Airflow. Il s'agissait également de s'assurer que les données collectées étaient conformes au Règlement Général sur la Protection des Données (RGPD).
 
-### Réalisation du Projet
+### Réalisation du Projet:
 
 Alors j'ai començé mon projet par:
 #### Hadoop Installation
 #### Hbase Installation
 #### Airflow Installation 
 
-#### Collecte de Données
+#### Collecte de Données:
+J'ai cree un script pour collecter les donnees de social media mastodon par le script scrapper.py 
 
 - Collecte de données brutes à partir de Mastodon en utilisant l'API de la plateforme.
 - Stockage des données brutes dans le système de fichiers distribué HDFS.
 - Utilisation des bibliothèques datetime, json, Mastodon, InsecureClient, requests pour la collecte de données.
 
+
 ### Traitement MapReduce
+j'ai cree mapper.py et reducer.py 
 
 - Le Mapper a été utilisé pour traiter les données d'entrée et générer des paires clé-valeur en fonction des métriques à analyser.
 - Le Reducer a agrégé les paires clé-valeur pour obtenir des métriques telles que le nombre d'abonnés des utilisateurs, les taux d'engagement, le nombre d'URL, d'emojis, etc.
@@ -31,6 +34,9 @@ Alors j'ai començé mon projet par:
 - L'API de streaming Hadoop a été utilisée pour exécuter la tâche MapReduce.
 - Les scripts du Mapper et du Reducer ont été fournis comme entrées dans le travail.
 - La progression de la tâche a été surveillée via l'interface utilisateur Web Hadoop.
+
+Alors pour executé mapreducer on a besoin de faire un streaming, avec cette commande:
+command : hadoop jar $HADOOP_HOME/share/hadoop/tools/lib/hadoop-streaming-*.jar -files mapper.py,reducer.py -mapper "python3 mapper.py" -reducer "python3 reducer.py" -input /Mostodon/Raw/mastodon_data_2023-10-23.json -output /output/ReducerResult
 
 ### Stockage des Résultats dans HBase
 
@@ -76,9 +82,7 @@ Ce projet a permis de mettre en place un pipeline automatisé pour analyser les 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-create mapper.py
-
-create reducer.py 
+voila quelque modification qui j'ai fait pour les configiration:
 
 command : sudo gedit /usr/local/hadoop/etc/hadoop/mapred-site.xml
 ````
