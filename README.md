@@ -43,6 +43,32 @@ command : hadoop jar $HADOOP_HOME/share/hadoop/tools/lib/hadoop-streaming-*.jar 
 - Un schéma HBase a été conçu pour stocker les informations, en suivant les meilleures pratiques de conception.
 - Les tables HBase nécessaires ont été créées, et les données ont été insérées à partir du Reducer à l'aide d'un client HBase en Python.
 
+J'ai utilusé ces commands 
+command : /usr/local/Hbase/bin/hbase-daemon.sh start thrift
+command : /usr/local/Hbase/bin/hbase shell
+
+Et apres pour crée les tables:
+
+create 'Language', 'Language'
+create 'User', 'UserInfo'
+create 'URLShare', 'URLInfo', 'ShareCount'
+create 'Tags', 'TagsInfo'
+create 'Mentions', 'MentionsInfo'
+
+
+command : python3 hbase_script.py
+
+output: 
+```` 
+hadoop@yaserrati:~/mastodon$ python3 hbase_script.py 
+Connected to HBase
+Connected to table: User
+Connected to table: Language
+Connected to table: URLShare
+Connected to table: Mentions
+Connected to table: Tags
+Connection closed
+````
 ### Orchestration avec Apache Airflow
 
 - Un DAG a été créé pour orchestrer le workflow, avec des tâches dédiées pour exécuter le travail MapReduce et stocker les résultats dans HBase.
