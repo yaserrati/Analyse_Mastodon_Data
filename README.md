@@ -69,3 +69,267 @@ Toutes les données personnelles ingérées de Mastodon ont été documentées, 
 ## Conclusion
 
 Ce projet a permis de mettre en place un pipeline automatisé pour analyser les données des réseaux sociaux de manière efficace. Les informations obtenues ont été essentielles pour comprendre l'engagement des utilisateurs, la popularité du contenu, et d'autres aspects importants. En continuant à optimiser et à surveiller ce système, nous nous assurerons qu'il reste performant et conforme aux réglementations.
+
+
+
+
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+create mapper.py
+
+create reducer.py 
+
+command : sudo gedit /usr/local/hadoop/etc/hadoop/mapred-site.xml
+````
+<configuration>
+ 	<property>
+ 		<name>mapreduce.framework.name</name>
+ 		<value>yarn</value>
+ 	</property>
+ 	<property>
+ 		<name>yarn.app.mapreduce.am.env</name>
+ 		<value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
+ 	</property>
+ 	<property>
+ 		<name>mapreduce.map.env</name>
+ 		<value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
+ 	</property>
+ 	<property>
+ 		<name>mapreduce.reduce.env</name>
+ 		<value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
+ 	</property>
+</configuration>
+````
+
+command : hadoop jar $HADOOP_HOME/share/hadoop/tools/lib/hadoop-streaming-*.jar -files mapper.py,reducer.py -mapper "python3 mapper.py" -reducer "python3 reducer.py" -input /Mostodon/Raw/mastodon_data_2023-10-23.json -output /output/ReducerResult
+
+create hbase_script.py 
+
+````
+#!/usr/bin/env python3
+
+import happybase
+import json
+from hdfs import InsecureClient
+
+# HBase and HDFS connection parameters
+hbase_host = 'localhost'  # HBase host
+hbase_port = 9090         # HBase port
+
+hdfs_url = 'http://localhost:9870'
+hdfs_client = InsecureClient(hdfs_url, user='hadoop')
+
+#  The input data 
+hdfs_file = '/output/ReducerResult43/part-00000'
+
+with hdfs_client.read(hdfs_file) as hdfs_file:
+    hdfs_file_contents = hdfs_file.read() # 
+
+try:
+    # Initialize a connection to HBase
+    connection = happybase.Connection(host=hbase_host, port=hbase_port)
+    print("Connected to HBase")
+
+    # Open the 'User' table
+    user_table_name = 'User'
+    user_table = connection.table(user_table_name) # set a connection to the hbase table 
+    print(f"Connected to table: {user_table_name}")
+    
+    # Read and process User data 
+    try:
+        data = json.loads(hdfs_file_contents)
+        userFollowerCount = data.get('UserFollowerCount')
+        userEngagementRate = data.get('UserEngagementRate')
+
+        if userFollowerCount and userEngagementRate:
+            for user_id, follower_count in userFollowerCount.items():
+                if user_id in userEngagementRate:
+                    engagement_rate = userEngagementRate[user_id]
+
+                    user_table.put(
+                        user_id.encode('utf-8'),
+                        {
+                            'UserInfo:FollowerCount': str(follower_count).encode('utf-8'),
+                            'UserInfo:EngagementRate': str(engagement_rate).encode('utf-8'),
+                        }
+                    )
+        else:
+            print("User Data is not enough in the JSON")      
+    except json.JSONDecodeError as e:
+    
+        print(f"JSON parsing error in user table:  {e}")
+    
+    # Open the table for Toots language data
+    toots_language_table_name = 'Language'
+    toots_language_table = connection.table(toots_language_table_name)
+    print(f"Connected to table: {toots_language_table_name}")
+    
+    # Read and process Toots language data from HDFS
+    try:
+        data = json.loads(hdfs_file_contents)
+        toots_language = data.get('Tootslanguage')
+
+        if toots_language:
+            for language, count in toots_language.items():
+                toots_language_table.put(
+                    language.encode('utf-8'),
+                    {'Language:Count': str(count).encode('utf-8')}
+                )
+        else:
+            print("No 'Tootslanguage' data in the JSON")
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error in language table:  {e}")
+
+
+    # Open the table for URLShare data
+    urlshare_table_name = 'URLShare'
+    urlshare_table = connection.table(urlshare_table_name)
+    print(f"Connected to table: {urlshare_table_name}")
+
+    # Read and process URLShare data from HDFS
+    try:
+        data = json.loads(hdfs_file_contents)
+        url_content = data.get('Url')
+
+        if url_content:
+            for url, share_count in url_content.items():
+                urlshare_table.put(
+                    url.encode('utf-8'),
+                    {
+                        'URLInfo:Url': str(url).encode('utf-8'),
+                        'ShareCount:Count': str(share_count).encode('utf-8')
+                    }
+                )
+        else:
+            print("No 'Url' data in the JSON")
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error in url table :  {e}")
+        
+    # Open the table for tag data
+    Mention_table_name = 'Mentions'
+    Mention_table = connection.table(Mention_table_name)
+    print(f"Connected to table: {Mention_table_name}")
+        
+    # Read and process Mention data from HDFS
+    try:
+        data = json.loads(hdfs_file_contents)
+        mention_content = data.get('Mention')
+
+        if mention_content:
+            for mention, mention_count in mention_content.items():
+                Mention_table.put(
+                    mention.encode('utf-8'),
+                    {
+                        'MentionsInfo:Count': str(mention_count).encode('utf-8'),
+                    }
+                )
+        else:
+            print("No 'Mention' data in the JSON")     
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error in mentions table :  {e}")
+
+    # Open the table for tag data
+    Tag_table_name = 'Tags'
+    Tag_table = connection.table(Tag_table_name)
+    print(f"Connected to table: {Tag_table_name}")
+    
+    #Read and process URLShare data from HDFS
+    try:
+        data = json.loads(hdfs_file_contents)
+        Tag_content = data.get('Tag')
+
+        if Tag_content:
+            for tag, tag_count in Tag_content.items():
+                Tag_table.put(
+                    tag.encode('utf-8'),
+                    {
+                        'TagsInfo:Count': str(tag_count).encode('utf-8'),
+                    }
+                )
+        else:
+            print("No 'tag' data in the JSON")  
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error in tag tables :  {e}")
+
+    # Close the connection
+    connection.close()
+    print("Connection closed")
+    
+except Exception as ex:
+    print(f"An error occurred: {ex}")
+````
+command : /usr/local/Hbase/bin/hbase-daemon.sh start thrift
+
+command : /usr/local/Hbase/bin/hbase shell
+
+command : 
+
+command : run hbase_script.py
+
+command : sudo gedit hbase-site.xml
+````
+<configuration>
+    <property>
+          <name>hbase.rootdir</name>
+          <!-- <value>file:/home/hadoop/Hbase/HFiles</value> -->
+          <value>hdfs://0.0.0.0:9000/hbase</value> 
+    </property>
+
+    <property>
+          <name>hbase.wal.provider</name>
+          <value>filesystem</value>
+    </property>
+    <property>
+          <name>hbase.regionserver.thrift.http</name>
+          <value>false</value>
+    </property>
+</configuration>
+````
+
+command : sudo gedit hbase-site.xml
+
+
+````
+<configuration>
+    <property>
+          <name>hbase.rootdir</name>
+          <!-- <value>file:/home/hadoop/Hbase/HFiles</value> -->
+          <value>hdfs://0.0.0.0:9000/hbase</value> 
+    </property>
+
+    <property>
+          <name>hbase.wal.provider</name>
+          <value>filesystem</value>
+    </property>
+    <property>
+          <name>hbase.regionserver.thrift.http</name>
+          <value>false</value>
+    </property>
+</configuration>
+````
+
+command : /usr/local/Hbase/bin/hbase-daemon.sh start thrift
+command : /usr/local/Hbase/bin/hbase shell
+
+create 'Language', 'Language'
+create 'User', 'UserInfo'
+create 'URLShare', 'URLInfo', 'ShareCount'
+create 'Tags', 'TagsInfo'
+create 'Mentions', 'MentionsInfo'
+
+
+command : python3 hbase_script.py
+
+output: 
+```` 
+hadoop@yaserrati:~/mastodon$ python3 hbase_script.py 
+Connected to HBase
+Connected to table: User
+Connected to table: Language
+Connected to table: URLShare
+Connected to table: Mentions
+Connected to table: Tags
+Connection closed
+````
+
